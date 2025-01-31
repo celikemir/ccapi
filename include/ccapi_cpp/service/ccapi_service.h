@@ -548,6 +548,7 @@ class Service : public std::enable_shared_from_this<Service> {
           return;
         }
       }
+      
       ErrorCode ec;
       tcp::endpoint existingLocalEndpoint = beast::get_lowest_layer(stream).socket().local_endpoint(ec);
       if (ec) {
@@ -556,8 +557,18 @@ class Service : public std::enable_shared_from_this<Service> {
                       eventQueuePtr);
         return;
       }
-      tcp::endpoint localEndpoint(net::ip::address::from_string(localIpAddress),
-                                  0);  // Note: Setting the port to 0 means the OS will select a free port for you
+      
+      boost::system::error_code asioEc;
+      auto address = boost::asio::ip::make_address(localIpAddress, asioEc);
+      if (asioEc) {
+        CCAPI_LOGGER_ERROR("Failed to create IP address: " + asioEc.message());
+        return;
+      }
+
+      // Use a default port or get it from configuration
+      unsigned short defaultLocalPort = 0; // Using 0 lets the system choose an available port
+      tcp::endpoint localEndpoint(address, defaultLocalPort);
+      
       if (localEndpoint != existingLocalEndpoint) {
         ErrorCode ec;
         CCAPI_LOGGER_TRACE("before socket bind");
